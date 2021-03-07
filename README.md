@@ -11,6 +11,7 @@ npm install
 ```
 my_client_id={YOUR ID}
 my_client_secret={YOUR SECRET}
+SECRET={APP_SECRET}
 ```
 
 ##  Start

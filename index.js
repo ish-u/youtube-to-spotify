@@ -7,16 +7,20 @@ const fs = require('fs');
 const ytdl = require('ytdl-core');
 const ytpl = require('ytpl');
 const { stringify } = require('querystring');
+const session = require('express-session');
 require('dotenv').config();
 
 // initiating app object
 const app = express();
 
+// Body Parser Middleware
+app.use(express.json());
+app.use(express.urlencoded({ "extended": false }));
+app.use(session({ secret: process.env.SECRET }));
+
 // client id and secret
 my_client_id = process.env.my_client_id
 my_client_secret = process.env.my_client_secret
-let ACCESS_TOKEN = null
-let ACCESS_TOKEN_REFRESH = null
 
 // redirect uri
 redirect_uri = "http://localhost:5000/auth"
@@ -24,7 +28,7 @@ redirect_uri = "http://localhost:5000/auth"
 // adding cors
 app.use(cors());
 
-// Body Parser Middleware
+// Body Parser and express-session Middleware
 app.use(express.json());
 app.use(express.urlencoded({ "extended": false }));
 app.engine('handlebars', exphbs());
@@ -35,7 +39,7 @@ const PORT = 5000 || process.env.PORT;
 
 // index routes
 app.get("/", async (req, res) => {
-    if (ACCESS_TOKEN != null) {
+    if (typeof req.session.ACCESS_TOKEN != 'undefined') {
         res.render('form');
     }
     else {
@@ -81,20 +85,20 @@ app.post('/', async (req, res) => {
 
     // getting Spotify URI for the Songs from the YouTube Playlist
     for (const song of songs) {
-        spotifyURI.push(await getSpotifyURI(song));
+        spotifyURI.push(await getSpotifyURI(song, req.session.ACCESS_TOKEN));
     }
 
     // filteing URI array
     spotifyURI = spotifyURI.filter(x => x);
 
     // getting UserID
-    const userID = await getUserID();
+    const userID = await getUserID(req.session.ACCESS_TOKEN);
 
     // creating Playlist from the form data that User Submitted
-    const spotifyPlaylistID = await createPlaylist(req.body.name, req.body.description, userID);
+    const spotifyPlaylistID = await createPlaylist(req.body.name, req.body.description, userID, req.session.ACCESS_TOKEN);
 
     // adding Songs to created Playlist
-    await addSongToPalylist(spotifyPlaylistID, spotifyURI.join(','));
+    await addSongToPalylist(spotifyPlaylistID, spotifyURI.join(','), req.session.ACCESS_TOKEN);
 
     res.redirect('/');
 })
@@ -138,8 +142,8 @@ app.get('/auth', async (req, res) => {
         })
         .then(data => {
             // console.log(data);
-            ACCESS_TOKEN = data.access_token;
-            ACCESS_TOKEN_REFRESH = data.refresh_token;
+            req.session.ACCESS_TOKEN = data.access_token;
+            req.session.ACCESS_TOKEN_REFRESH = data.refresh_token;
             res.redirect("/");
         })
         .catch(err => {
@@ -151,7 +155,7 @@ app.get('/auth', async (req, res) => {
 
 // Search Artist and Songs
 app.get("/search/:id", async (req, res) => {
-    let oAUTH = 'Bearer ' + ACCESS_TOKEN
+    let oAUTH = 'Bearer ' + req.session.ACCESS_TOKEN
     await fetch(`https://api.spotify.com/v1/search?q=${req.params.id}&type=track`, {
         method: "GET",
         headers: {
@@ -174,7 +178,7 @@ app.get("/search/:id", async (req, res) => {
 })
 
 // get new ACCESS_TOKEN from REFRESH_TOKEN
-async function refreshAccessToken() {
+async function refreshAccessToken(ACCESS_TOKEN_REFRESH) {
     let authorization = Buffer.from(my_client_id + ":" + my_client_secret).toString('base64');
     let data = {
         grant_type: "refresh_token",
@@ -197,7 +201,7 @@ async function refreshAccessToken() {
         })
         .then(data => {
             console.log(data);
-            ACCESS_TOKEN = data.access_token;
+            req.session.ACCESS_TOKEN = data.access_token;
             res.redirect("/");
         })
         .catch(err => {
@@ -215,7 +219,7 @@ async function getSongName(video) {
                 console.log(song);
                 return song;
             }
-            return ;
+            return;
 
         })
         .catch(err => {
@@ -224,7 +228,7 @@ async function getSongName(video) {
 }
 
 // Get Spotify ID
-async function getSpotifyURI(song) {
+async function getSpotifyURI(song, ACCESS_TOKEN) {
     let oAUTH = 'Bearer ' + ACCESS_TOKEN
     return fetch(`https://api.spotify.com/v1/search?q=${song}&type=track`, {
         method: "GET",
@@ -253,7 +257,7 @@ async function getSpotifyURI(song) {
 }
 
 // get User ID
-async function getUserID() {
+async function getUserID(ACCESS_TOKEN) {
     let oAUTH = 'Bearer ' + ACCESS_TOKEN
     return fetch("https://api.spotify.com/v1/me    ", {
         method: "GET",
@@ -275,7 +279,7 @@ async function getUserID() {
 }
 
 // create Playlist
-async function createPlaylist(name, description, user) {
+async function createPlaylist(name, description, user, ACCESS_TOKEN) {
     let oAUTH = 'Bearer ' + ACCESS_TOKEN
     let body = {
         name: name,
@@ -304,7 +308,7 @@ async function createPlaylist(name, description, user) {
 }
 
 // add songs to Playlist
-async function addSongToPalylist(ID, URIS) {
+async function addSongToPalylist(ID, URIS, ACCESS_TOKEN) {
     let oAUTH = 'Bearer ' + ACCESS_TOKEN
     let body = {
         uris: URIS
@@ -328,11 +332,6 @@ async function addSongToPalylist(ID, URIS) {
             console.log(err);
         })
 }
-
-
-// Body Parser Middleware
-app.use(express.json());
-app.use(express.urlencoded({ "extended": false }));
 
 
 app.listen(PORT, () => {
