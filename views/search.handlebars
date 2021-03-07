@@ -1,0 +1,25 @@
+<div class="container p-5">
+    <h1>Search Results</h1>
+    <table class="table">
+        <thead class="thead-dark">
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Name</th>
+                <th scope="col">ID</th>
+                <th scope="col">href</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each data}}
+                <tr>
+                    <th scope="row">{{ @key }}</th>
+                    <td>{{ this.name }}</td>
+                    <td>{{ this.id }}</td>
+                    <td><a href="{{this.external_urls.spotify}}">link</a></li>
+                    </td>
+                </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+</div>
