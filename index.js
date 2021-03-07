@@ -47,7 +47,7 @@ app.post('/', async (req, res) => {
 
     var playlistID = "";
     const videos = []
-    const songs = []
+    let songs = []
     let spotifyURI = []
 
     // getting playlist ID from URL
@@ -76,6 +76,9 @@ app.post('/', async (req, res) => {
         songs.push(await getSongName(video));
     }
 
+    // filteing songs array
+    songs = songs.filter(x => x);
+
     // getting Spotify URI for the Songs from the YouTube Playlist
     for (const song of songs) {
         spotifyURI.push(await getSpotifyURI(song));
@@ -86,10 +89,10 @@ app.post('/', async (req, res) => {
 
     // getting UserID
     const userID = await getUserID();
-    
+
     // creating Playlist from the form data that User Submitted
     const spotifyPlaylistID = await createPlaylist(req.body.name, req.body.description, userID);
-    
+
     // adding Songs to created Playlist
     await addSongToPalylist(spotifyPlaylistID, spotifyURI.join(','));
 
@@ -212,7 +215,8 @@ async function getSongName(video) {
                 console.log(song);
                 return song;
             }
-            return;
+            return ;
+
         })
         .catch(err => {
             console.log(err);
@@ -236,11 +240,10 @@ async function getSpotifyURI(song) {
         .then(data => {
             // console.log(data);
             if (data.tracks.items && ((data.tracks.items).length > 0)) {
-                // console.log(data.tracks.items[0].uri)
+                console.log(data.tracks.items[0].uri)
                 return data.tracks.items[0].uri;
             }
             else {
-
                 return;
             }
         })
